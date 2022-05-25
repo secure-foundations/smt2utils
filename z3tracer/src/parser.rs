@@ -313,6 +313,9 @@ where
                 lexer.read_end_of_line()?;
                 Ok(false)
             }
+            "" => { // Treat lack of read as EOF
+                Ok(false)
+            }
             s if self.config.ignore_invalid_lines && !s.starts_with('[') => {
                 // Ignore lines not starting with '['
                 lexer.read_line()?;
