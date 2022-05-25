@@ -221,6 +221,13 @@ where
                 lexer.read_end_of_line()?;
                 Ok(true)
             }
+            "[decide-and-or]" => {
+                let id1 = lexer.read_ident()?;
+                let id2 = lexer.read_ident()?;
+                //state.add_decide_and_or(id1, id2)?;
+                lexer.read_end_of_line()?;
+                Ok(true)
+            }
             "[instance]" => {
                 let key = lexer.read_key()?;
                 let term = lexer.read_optional_ident()?;
