@@ -12,6 +12,7 @@ use std::collections::BTreeMap;
 pub struct Lexer<R> {
     reader: R,
     path_name: Option<String>,
+    line_count : usize,
     current_offset: usize,
     current_line: usize,
     current_column: usize,
@@ -23,10 +24,11 @@ impl<R> Lexer<R>
 where
     R: std::io::BufRead,
 {
-    pub fn new(path_name: Option<String>, reader: R) -> Self {
+    pub fn new(path_name: Option<String>, reader: R, line_count: usize) -> Self {
         Self {
             path_name,
             reader,
+            line_count,
             current_offset: 0,
             current_line: 0,
             current_column: 0,
@@ -48,6 +50,10 @@ where
             position: self.current_position(),
             error,
         }
+    }
+
+    pub fn line_count(&self) -> usize {
+        self.line_count
     }
 
     fn consume_byte(&mut self) {

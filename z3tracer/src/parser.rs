@@ -89,7 +89,15 @@ where
 {
     /// Parse the input.
     pub fn parse(&mut self) -> Result<()> {
-        while self.parse_line().map_err(|e| self.lexer.make_error(e))? {}
+        let num_lines = self.lexer.line_count() as i64;
+        let increment = (0.01 * num_lines as f64) as i64;
+        let mut line_count = 0;
+        while self.parse_line().map_err(|e| self.lexer.make_error(e))? {
+            if line_count % increment == 0 {
+                println!("\t{}% complete", (line_count * 100) / num_lines);
+            }
+            line_count += 1;
+        }
         Ok(())
     }
 

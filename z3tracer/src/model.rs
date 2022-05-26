@@ -231,11 +231,11 @@ impl Model {
     }
 
     /// Process some input.
-    pub fn process<R>(&mut self, path_name: Option<String>, input: R) -> Result<()>
+    pub fn process<R>(&mut self, path_name: Option<String>, input: R, line_count: usize) -> Result<()>
     where
         R: std::io::BufRead,
     {
-        let lexer = Lexer::new(path_name, input);
+        let lexer = Lexer::new(path_name, input, line_count);
         let config = self.config.parser_config.clone();
         Parser::new(config, lexer, self).parse()
     }
