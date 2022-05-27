@@ -91,16 +91,17 @@ where
     /// Parse the input.
     pub fn parse(&mut self) -> Result<()> {
         let num_lines = self.lexer.line_count() as u64;
-        let bar = ProgressBar::new(num_lines);
-        bar.set_style(ProgressStyle::default_bar().template("[{elapsed_precise}] {bar:80.green/black} {pos}/{len}"));
+        let granularity = 1000;
+        let bar = ProgressBar::new(num_lines/granularity);
+        bar.set_style(ProgressStyle::default_bar().template("[{elapsed_precise}] {bar:80.green/black} {pos}/{len}K lines"));
 //        let increment = (0.01 * num_lines as f64) as u64;
-//        let mut line_count = 0;
+        let mut line_count = 0;
         while self.parse_line().map_err(|e| self.lexer.make_error(e))? {
-            bar.inc(1);
-//            if line_count % increment == 0 {
-//                println!("\t{}% complete", (line_count * 100) / num_lines);
-//            }
-//            line_count += 1;
+            line_count += 1;
+            if line_count % granularity == 0 {
+                bar.inc(1);
+                //println!("\t{}% complete", (line_count * 100) / num_lines);
+            }
         }
         bar.finish();
         Ok(())
