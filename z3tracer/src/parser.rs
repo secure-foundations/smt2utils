@@ -255,7 +255,7 @@ where
                 lexer.read_end_of_line()?;
                 Ok(true)
             }
-            "[attach-enode]" => {
+            "[attach-enode]" => { // Profiler indicates this a most expensive (32%)
                 let id = lexer.read_ident()?;
                 let generation = lexer.read_integer()?;
                 state.attach_enode(id, generation)?;
@@ -283,7 +283,7 @@ where
                 lexer.read_end_of_line()?;
                 Ok(true)
             }
-            "[assign]" => {
+            "[assign]" => { // Profiler indicates this is 2nd-most expensive (16%)
                 let lit = lexer.read_literal()?;
                 let s = lexer.read_line()?;
                 state.assign(lit, s)?;
