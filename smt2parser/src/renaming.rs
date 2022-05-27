@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Utilities for name resolution and renaming of bound symbols.
-
 use crate::{
     concrete::*,
     rewriter::Rewriter,
@@ -59,6 +58,7 @@ where
 /// * Symbol names may be re-used after a `reset` or a `pop` command, but are otherwise
 /// unique (disregarding the more limited lexical scoping of variables).
 #[derive(Debug, Default)]
+#[allow(dead_code)]
 pub struct SymbolNormalizer<V> {
     /// The underlying syntax visitor.
     visitor: V,
