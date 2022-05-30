@@ -18,7 +18,7 @@ pub struct Ident {
 }
 
 /// The hexadecimal index of a quantifier instantiation (QI).
-#[derive(Eq, PartialEq, Ord, PartialOrd, Clone, Copy)]
+#[derive(Eq, PartialEq, Ord, PartialOrd, Clone, Copy, Hash)]
 pub struct QiKey {
     pub key: u64,
     pub version: usize,
