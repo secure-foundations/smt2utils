@@ -3,7 +3,7 @@
 
 #![forbid(unsafe_code)]
 
-use z3tracer::{report::*, Model, ModelConfig};
+use z3tracer::{report::*, Model, ModelConfig, syntax::*};
 
 use multiset::HashMultiSet;
 use petgraph::graph::Graph;
@@ -212,8 +212,89 @@ fn main() {
         eprintln!("Processing {}", file_name);
         let model = process_file(options.config.clone(), &input).unwrap();
         eprintln!("Done processing {}", file_name);
-        eprintln!("Terms: {}", model.terms().len());
-        eprintln!("Instantiations: {}", model.instantiations().len());
+        eprintln!("# Terms: {}", model.terms().len());
+        //println!("Terms: {:?}", model.terms());
+        for term in model.terms() {
+            println!("Term: {:?}", term);
+        }
+        eprintln!("# Instantiations: {}", model.instantiations().len());
+        //println!("Instantiations: {:?}", model.instantiations());
+        for inst in model.instantiations() {
+            println!("Instantiation: {:?}", inst);
+        }
+
+        let mut term_blame = HashMap::new();
+//        let instantiated_term_counts = model.most_instantiated_terms();
+//        let quantifiers_sorted = instantiated_term_counts.iter()
+//            .filter_map(|(count, ident)| {
+//                        //let term = model.term(&ident).expect(format!("failed to find {:?} in the profiler's model", ident).as_str());
+//                        let term_data = model.term_data(&ident).unwrap();
+//                        let term = &term_data.term;
+//                        //println!("Examining {:?}", term); 
+//                        match term {
+//                            z3tracer::syntax::Term::Quant { name, .. } => 
+//                                if name.starts_with("crate__") {
+//                                    println!("Found: {:?} with count {}", term, count);
+//                                    println!("\tand {} instantiations: {:?}", term_data.instantiations.len(), term_data.instantiations);
+//                                    for qi_key in &term_data.instantiations {
+//                                        let inst = model.instantiations().get(&qi_key).unwrap();
+//                                        println!("\tInst: {:?}", inst);
+//                                        for i in &inst.instances {
+//                                            for node_ident in &i.enodes {
+//                                                term_blame.insert(node_ident, name.clone());
+//                                            }
+//                                        }
+//                                    }
+//                                    Some((name.clone(), count))
+//                                } else {
+//                                    None
+//                                },
+//                            _ => None,
+//                        }
+//                    })
+//            .collect::<Vec<_>>();
+        let quantifier_inst_matches = model.instantiations().values()
+            .filter(|quant_inst| 
+                    match quant_inst.frame { 
+                        QiFrame::Discovered { .. } => false,
+                        QiFrame::NewMatch { .. } => true,
+                    });
+
+        for quant_inst in quantifier_inst_matches.clone() {
+            for inst in &quant_inst.instances {
+                for node_ident in &inst.enodes {
+                    term_blame.insert(node_ident, quant_inst.frame.quantifier());
+                }
+            }
+        }
+        println!("term_blame: {:?}", term_blame);
+
+        let mut children_map:HashMap<Ident,Vec<Ident>> = HashMap::new();
+        for quant_inst in quantifier_inst_matches {
+            match &quant_inst.frame {
+                QiFrame::Discovered { .. } => panic!("We filtered out all of the Discovered instances already!"),
+                QiFrame::NewMatch { quantifier:q, used : u, .. } => 
+                    for used in u.iter() {
+                        match used {
+                            MatchedTerm::Trigger(t) => {
+                                match term_blame.get(&t) {
+                                    None => println!("Nobody to blame for {:?}", t),
+                                    Some(q_responsible) => // Quantifier that produced the triggering term
+                                        match children_map.get_mut(&q_responsible) {
+                                            None => { children_map.insert((*q_responsible).clone(), vec![q.clone()]); () },
+                                            Some(children) => children.push(q.clone()), //*count += 1,
+                                        },
+                                }
+                            },
+                            MatchedTerm::Equality(t1, t2) => (), // TODO: What happens in this case?
+                        }
+                    },
+            }
+        }
+
+        println!("children_map: {:?}", children_map);
+
+
 
         if !options.plot_instantiations
             && !options.plot_user_instantiations
