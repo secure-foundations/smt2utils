@@ -231,7 +231,12 @@ impl Model {
     }
 
     /// Process some input.
-    pub fn process<R>(&mut self, path_name: Option<String>, input: R, line_count: usize) -> Result<()>
+    pub fn process<R>(
+        &mut self,
+        path_name: Option<String>,
+        input: R,
+        line_count: usize,
+    ) -> Result<()>
     where
         R: std::io::BufRead,
     {

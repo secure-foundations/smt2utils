@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 pub struct Lexer<R> {
     reader: R,
     path_name: Option<String>,
-    line_count : usize,
+    line_count: usize,
     current_offset: usize,
     current_line: usize,
     current_column: usize,

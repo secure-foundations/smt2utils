@@ -1,8 +1,8 @@
 // Copyright (c) Facebook, Inc. and its affiliates
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+use indicatif::{ProgressBar, ProgressStyle};
 use structopt::StructOpt;
-use indicatif::{ProgressBar,ProgressStyle};
 
 use crate::{
     error::{RawError, RawResult, Result},
@@ -92,9 +92,12 @@ where
     pub fn parse(&mut self) -> Result<()> {
         let num_lines = self.lexer.line_count() as u64;
         let granularity = 1000;
-        let bar = ProgressBar::new(num_lines/granularity);
-        bar.set_style(ProgressStyle::default_bar().template("[{elapsed_precise}] {bar:80.green/black} {pos}/{len}K lines"));
-//        let increment = (0.01 * num_lines as f64) as u64;
+        let bar = ProgressBar::new(num_lines / granularity);
+        bar.set_style(
+            ProgressStyle::default_bar()
+                .template("[{elapsed_precise}] {bar:80.green/black} {pos}/{len}K lines"),
+        );
+        //        let increment = (0.01 * num_lines as f64) as u64;
         let mut line_count = 0;
         while self.parse_line().map_err(|e| self.lexer.make_error(e))? {
             line_count += 1;
@@ -255,7 +258,8 @@ where
                 lexer.read_end_of_line()?;
                 Ok(true)
             }
-            "[attach-enode]" => { // Profiler indicates this a most expensive (32%)
+            "[attach-enode]" => {
+                // Profiler indicates this a most expensive (32%)
                 let id = lexer.read_ident()?;
                 let generation = lexer.read_integer()?;
                 state.attach_enode(id, generation)?;
@@ -283,7 +287,8 @@ where
                 lexer.read_end_of_line()?;
                 Ok(true)
             }
-            "[assign]" => { // Profiler indicates this is 2nd-most expensive (16%)
+            "[assign]" => {
+                // Profiler indicates this is 2nd-most expensive (16%)
                 let lit = lexer.read_literal()?;
                 let s = lexer.read_line()?;
                 state.assign(lit, s)?;
@@ -327,7 +332,8 @@ where
                 lexer.read_end_of_line()?;
                 Ok(false)
             }
-            "" => { // Treat lack of read as EOF
+            "" => {
+                // Treat lack of read as EOF
                 Ok(false)
             }
             s if self.config.ignore_invalid_lines && !s.starts_with('[') => {
