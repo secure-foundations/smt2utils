@@ -323,6 +323,11 @@ fn main() {
         }
 
         // Compute the cost of each QuantifierInstance
+        //   cost(i) = 1 + sum_{(i, n) \in edges} cost(n) / in-degree(n)
+        // i.e., the cost of an instance is shared equally by all
+        // instances that caused it
+        // See 4.3.1 of "Programming with Triggers" by Michał Moskal,
+        // SMT Workshop 2009 (https://moskal.me/pdf/prtrig.pdf)
         let mut qi_cost: HashMap<QiKey, u64> = HashMap::new();
         let mut dfs = DfsPostOrder::new(&graph, *some_index);
         for qi_root in graph.externals(Direction::Incoming) {
@@ -340,6 +345,7 @@ fn main() {
         }
 
         // Finally, compute the cost of each quantifier
+        //   = sum_{i \in instances} cost(i)
         let mut quant_cost: HashMap<Ident, u64> = HashMap::new();
         for (qi_key, quant_inst) in quantifier_inst_matches {
             let quant = quant_inst.frame.quantifier();
