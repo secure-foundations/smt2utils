@@ -187,7 +187,7 @@ pub struct QuantInstantiation {
 }
 
 /// Data about how much work a quantifier created
-#[derive(Eq, PartialEq, Ord, PartialOrd, Clone, Hash)]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone, Hash)]
 pub struct QuantCost {
     pub quant: String,
     /// Raw number of times this quantifier was instantiated
