@@ -3,8 +3,11 @@
 
 use once_cell::sync::Lazy;
 use smt2parser::concrete::Symbol;
-use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet};
 use structopt::StructOpt;
+use petgraph::Direction;
+use petgraph::graph::Graph;
+use petgraph::visit::DfsPostOrder;
 
 use crate::{
     error::{RawError, RawResult, Result},
@@ -183,6 +186,16 @@ pub struct QuantInstantiation {
     proof_deps: BTreeSet<ProofRef>,
 }
 
+/// Data about how much work a quantifier created
+#[derive(Eq, PartialEq, Ord, PartialOrd, Clone, Hash)]
+pub struct QuantCost {
+    pub quant: String,
+    /// Raw number of times this quantifier was instantiated
+    pub instantiations: u64,
+    /// Heuristic cost metric from previous Z3 profilers
+    pub cost: u64,
+}
+
 /// Main state of the Z3 tracer.
 #[derive(Default, Debug)]
 pub struct Model {
@@ -301,6 +314,136 @@ impl Model {
             .term;
         Ok(t)
     }
+
+    /// Calculate the cost imposed by each quantifier
+    pub fn quant_costs(&self) -> Vec<QuantCost> {
+        // Select instantations that resulted from a trigger match
+        let quantifier_inst_matches =
+            self
+                .instantiations()
+                .iter()
+                .filter(|(_, quant_inst)| match quant_inst.frame {
+                    QiFrame::Discovered { .. } => false,
+                    QiFrame::NewMatch { .. } => true,
+                });
+
+        // Track which instantiations caused which enodes to appear
+        let mut term_blame = HashMap::new();
+        for (qi_key, quant_inst) in quantifier_inst_matches.clone() {
+            for inst in &quant_inst.instances {
+                for node_ident in &inst.enodes {
+                    term_blame.insert(node_ident, qi_key);
+                }
+            }
+        }
+
+        // Create a graph over QuantifierInstances,
+        // where U->V if U produced an e-term that
+        // triggered U
+        let mut graph = Graph::<QiKey, ()>::new();
+        let mut node_map = HashMap::new();
+        for (qi_key, _) in quantifier_inst_matches.clone() {
+            let index = graph.add_node(*qi_key);
+            node_map.insert(qi_key, index);
+        }
+        for (qi_key, quant_inst) in quantifier_inst_matches.clone() {
+            match &quant_inst.frame {
+                QiFrame::Discovered { .. } => {
+                    panic!("We filtered out all of the Discovered instances already!")
+                }
+                QiFrame::NewMatch { used: u, .. } => {
+                    for used in u.iter() {
+                        match used {
+                            MatchedTerm::Trigger(t) => {
+                                match term_blame.get(&t) {
+                                    None =>  (), //println!("Nobody to blame for {:?}", t),
+                                    Some(qi_responsible) =>
+                                    // Quantifier instantiation that produced the triggering term
+                                    {
+                                        let qi_responsible_index =
+                                            node_map.get(qi_responsible).unwrap();
+                                        let qi_key_index = node_map.get(qi_key).unwrap();
+                                        graph.add_edge(*qi_responsible_index, *qi_key_index, ());
+                                        ()
+                                    }
+                                }
+                            }
+                            MatchedTerm::Equality(_t1, _t2) => (), // TODO: Unclear whether/how to use this case
+                        }
+                    }
+                }
+            }
+        }
+
+        // Compute the in-degree of each QuantifierInstance
+        let mut in_degree: HashMap<QiKey, u64> = HashMap::new();
+        let (some_qi_key, _) = quantifier_inst_matches.clone().next().unwrap();
+        let some_index = node_map.get(&some_qi_key).unwrap();
+        let mut dfs = DfsPostOrder::new(&graph, *some_index);
+        for qi_root in graph.externals(Direction::Incoming) {
+            // For each root of the graph
+            dfs.move_to(qi_root); // Keep visit map from the previous DFS traversal
+            while let Some(index) = dfs.next(&graph) {
+                let qi_key = &graph[index];
+                match in_degree.get_mut(&graph[index]) {
+                    None => {
+                        in_degree.insert(*qi_key, 1);
+                        ()
+                    }
+                    Some(count) => *count += 1,
+                }
+            }
+        }
+
+        // Compute the cost of each QuantifierInstance
+        //   cost(i) = 1 + sum_{(i, n) \in edges} cost(n) / in-degree(n)
+        // i.e., the cost of an instance is shared equally by all
+        // instances that caused it
+        // See 4.3.1 of "Programming with Triggers" by Michał Moskal,
+        // SMT Workshop 2009 (https://moskal.me/pdf/prtrig.pdf)
+        let mut qi_cost: HashMap<QiKey, u64> = HashMap::new();
+        let mut dfs = DfsPostOrder::new(&graph, *some_index);
+        for qi_root in graph.externals(Direction::Incoming) {
+            dfs.move_to(qi_root); // Keep visit map from the previous DFS traversal
+            while let Some(index) = dfs.next(&graph) {
+                let qi_key = &graph[index];
+                let mut sum = 0;
+                for neighbor in graph.neighbors_directed(index, Direction::Outgoing) {
+                    let neighbor_key = &graph[neighbor];
+                    sum +=
+                        qi_cost.get(neighbor_key).unwrap() / in_degree.get(neighbor_key).unwrap();
+                }
+                qi_cost.insert(*qi_key, 1 + sum);
+            }
+        }
+
+        // Finally, compute the cost of each quantifier
+        //   = sum_{i \in instances} cost(i)
+        let mut quant_cost: HashMap<Ident, QuantCost> = HashMap::new();
+        for (qi_key, quant_inst) in quantifier_inst_matches.clone() {
+            let quant_id = quant_inst.frame.quantifier();
+            let qi_cost = qi_cost.get(qi_key).unwrap();
+            match quant_cost.get_mut(quant_id) {
+                None => {
+                    let quant_term = self.term(&quant_id).expect(format!("failed to find {:?} in the profiler's model", quant_id).as_str());
+                    let quant_name = match quant_term {
+                                    Term::Quant { name, .. } => name,
+                                    _ => panic!("Term for quantifier isn't a Quant"),
+                                };
+                    let cost = QuantCost { quant: quant_name.to_string(), instantiations: 1, cost: *qi_cost };
+                    quant_cost.insert(quant_id.clone(), cost);
+                    ()
+                }
+                Some(cost) => {
+                    cost.instantiations += 1;
+                    cost.cost += qi_cost;
+                    ()
+                }
+            }
+        }
+        quant_cost.into_values().collect::<Vec<_>>()
+    }
+
 
     // Obtain a writeable entry in the current scope. The first time, this will trigger a
     // "copy-on-write" from the most recent ancestor scope that knows about `id` (if any).
