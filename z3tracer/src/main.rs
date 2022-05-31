@@ -233,7 +233,10 @@ fn main() {
         quant_costs.sort_by_key(|v| v.instantiations * v.cost);
         quant_costs.reverse();
         for cost in quant_costs {
-            println!("{} created {} instantiations and cost {}", cost.quant, cost.instantiations, cost.cost);
+            println!(
+                "{} created {} instantiations and cost {}",
+                cost.quant, cost.instantiations, cost.cost
+            );
         }
 
         if !options.plot_instantiations

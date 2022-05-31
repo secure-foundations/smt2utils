@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use once_cell::sync::Lazy;
+use petgraph::graph::Graph;
+use petgraph::visit::DfsPostOrder;
+use petgraph::Direction;
 use smt2parser::concrete::Symbol;
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet};
 use structopt::StructOpt;
-use petgraph::Direction;
-use petgraph::graph::Graph;
-use petgraph::visit::DfsPostOrder;
 
 use crate::{
     error::{RawError, RawResult, Result},
@@ -319,8 +319,7 @@ impl Model {
     pub fn quant_costs(&self) -> Vec<QuantCost> {
         // Select instantations that resulted from a trigger match
         let quantifier_inst_matches =
-            self
-                .instantiations()
+            self.instantiations()
                 .iter()
                 .filter(|(_, quant_inst)| match quant_inst.frame {
                     QiFrame::Discovered { .. } => false,
@@ -356,7 +355,7 @@ impl Model {
                         match used {
                             MatchedTerm::Trigger(t) => {
                                 match term_blame.get(&t) {
-                                    None =>  (), //println!("Nobody to blame for {:?}", t),
+                                    None => (), //println!("Nobody to blame for {:?}", t),
                                     Some(qi_responsible) =>
                                     // Quantifier instantiation that produced the triggering term
                                     {
@@ -425,12 +424,18 @@ impl Model {
             let qi_cost = qi_cost.get(qi_key).unwrap();
             match quant_cost.get_mut(quant_id) {
                 None => {
-                    let quant_term = self.term(&quant_id).expect(format!("failed to find {:?} in the profiler's model", quant_id).as_str());
+                    let quant_term = self.term(&quant_id).expect(
+                        format!("failed to find {:?} in the profiler's model", quant_id).as_str(),
+                    );
                     let quant_name = match quant_term {
-                                    Term::Quant { name, .. } => name,
-                                    _ => panic!("Term for quantifier isn't a Quant"),
-                                };
-                    let cost = QuantCost { quant: quant_name.to_string(), instantiations: 1, cost: *qi_cost };
+                        Term::Quant { name, .. } => name,
+                        _ => panic!("Term for quantifier isn't a Quant"),
+                    };
+                    let cost = QuantCost {
+                        quant: quant_name.to_string(),
+                        instantiations: 1,
+                        cost: *qi_cost,
+                    };
                     quant_cost.insert(quant_id.clone(), cost);
                     ()
                 }
@@ -443,7 +448,6 @@ impl Model {
         }
         quant_cost.into_values().collect::<Vec<_>>()
     }
-
 
     // Obtain a writeable entry in the current scope. The first time, this will trigger a
     // "copy-on-write" from the most recent ancestor scope that knows about `id` (if any).
