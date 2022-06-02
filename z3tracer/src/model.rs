@@ -418,25 +418,25 @@ impl Model {
 
         // Finally, compute the cost of each quantifier
         //   = sum_{i \in instances} cost(i)
-        let mut quant_cost: HashMap<Ident, QuantCost> = HashMap::new();
+        let mut quant_cost: HashMap<String, QuantCost> = HashMap::new();
         for (qi_key, quant_inst) in quantifier_inst_matches.clone() {
             let quant_id = quant_inst.frame.quantifier();
             let qi_cost = qi_cost.get(qi_key).unwrap();
-            match quant_cost.get_mut(quant_id) {
+            let quant_term = self.term(&quant_id).expect(
+                format!("failed to find {:?} in the profiler's model", quant_id).as_str(),
+            );
+            let quant_name = match quant_term {
+                Term::Quant { name, .. } => name,
+                _ => panic!("Term for quantifier isn't a Quant"),
+            };
+            match quant_cost.get_mut(quant_name) {
                 None => {
-                    let quant_term = self.term(&quant_id).expect(
-                        format!("failed to find {:?} in the profiler's model", quant_id).as_str(),
-                    );
-                    let quant_name = match quant_term {
-                        Term::Quant { name, .. } => name,
-                        _ => panic!("Term for quantifier isn't a Quant"),
-                    };
                     let cost = QuantCost {
                         quant: quant_name.to_string(),
                         instantiations: 1,
                         cost: *qi_cost,
                     };
-                    quant_cost.insert(quant_id.clone(), cost);
+                    quant_cost.insert(quant_name.clone(), cost);
                     ()
                 }
                 Some(cost) => {
