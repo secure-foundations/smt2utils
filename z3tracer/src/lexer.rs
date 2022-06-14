@@ -216,6 +216,7 @@ where
                 self.skip_spaces();
                 Ok(())
             }
+            None => Ok(()), // Allow EOF to count as EOL
             c => Err(RawError::UnexpectedChar(
                 c.cloned().map(char::from),
                 vec!['\n'],
