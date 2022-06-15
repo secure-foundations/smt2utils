@@ -423,7 +423,7 @@ impl Model {
             let quant_id = quant_inst.frame.quantifier();
             let qi_cost = qi_cost.get(qi_key).expect(
                 format!(
-                    "failed to find qi_key {:?} for quand_id {} in qi_cost",
+                    "failed to find qi_key {:?} for quant_id {:?} in qi_cost",
                     qi_key, quant_id
                 )
                 .as_str(),
