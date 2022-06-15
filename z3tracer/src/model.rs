@@ -421,10 +421,16 @@ impl Model {
         let mut quant_cost: HashMap<String, QuantCost> = HashMap::new();
         for (qi_key, quant_inst) in quantifier_inst_matches.clone() {
             let quant_id = quant_inst.frame.quantifier();
-            let qi_cost = qi_cost.get(qi_key).unwrap();
-            let quant_term = self.term(&quant_id).expect(
-                format!("failed to find {:?} in the profiler's model", quant_id).as_str(),
+            let qi_cost = qi_cost.get(qi_key).expect(
+                format!(
+                    "failed to find qi_key {:?} for quand_id {} in qi_cost",
+                    qi_key, quant_id
+                )
+                .as_str(),
             );
+            let quant_term = self
+                .term(&quant_id)
+                .expect(format!("failed to find {:?} in the profiler's model", quant_id).as_str());
             let quant_name = match quant_term {
                 Term::Quant { name, .. } => name,
                 _ => panic!("Term for quantifier isn't a Quant"),
