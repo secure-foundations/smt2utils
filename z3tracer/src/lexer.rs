@@ -125,7 +125,7 @@ where
                     let s = String::from_utf8(bytes).map_err(RawError::InvalidUtf8String)?;
                     return Ok(Symbol(s));
                 }
-                if *c == b'\n' {
+                if *c == b'\n' || *c == b'\r' {
                     return Err(RawError::UnexpectedChar(Some(*c as char), vec!['|']));
                 }
                 bytes.push(*c);
@@ -141,7 +141,7 @@ where
                 self.skip_spaces();
                 break;
             }
-            if c == b'\n' || c == b';' || c == b'(' || c == b')' {
+            if c == b'\n' || c == b'\r' || c == b';' || c == b'(' || c == b')' {
                 break;
             }
             bytes.push(c);
@@ -160,7 +160,7 @@ where
                 self.skip_spaces();
                 break;
             }
-            if c == b'\n' || c == b'#' || c == b';' || c == b'(' || c == b')' {
+            if c == b'\n' || c == b'\r' || c == b'#' || c == b';' || c == b'(' || c == b')' {
                 break;
             }
             bytes.push(c);
@@ -177,7 +177,7 @@ where
                 self.skip_spaces();
                 break;
             }
-            if *c == b'\n' {
+            if *c == b'\n' || *c == b'\r' {
                 break;
             }
             bytes.push(*c);
@@ -216,6 +216,20 @@ where
                 self.skip_spaces();
                 Ok(())
             }
+            Some(b'\r') => {
+                self.consume_byte();
+                match self.peek_byte() {
+                    Some(b'\n') => {
+                        self.consume_byte();
+                        self.skip_spaces();
+                        Ok(())
+                    }
+                    c => Err(RawError::UnexpectedChar(
+                        c.cloned().map(char::from),
+                        vec!['\r'],
+                    )),
+                }
+            }
             None => Ok(()), // Allow EOF to count as EOL
             c => Err(RawError::UnexpectedChar(
                 c.cloned().map(char::from),
@@ -228,6 +242,8 @@ where
         let mut bytes = Vec::new();
         while let Some(c) = self.peek_byte() {
             if *c == b'\n' {
+                break;
+            } else if *c == b'\r' {
                 break;
             }
             bytes.push(*c);
@@ -247,7 +263,7 @@ where
                 self.skip_spaces();
                 break;
             }
-            if *c == b'\n' {
+            if *c == b'\n' || *c == b'\r' {
                 break;
             }
             let item = f(self)?;
