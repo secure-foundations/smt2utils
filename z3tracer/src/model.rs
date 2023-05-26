@@ -5,6 +5,7 @@ use once_cell::sync::Lazy;
 use petgraph::graph::Graph;
 use petgraph::visit::DfsPostOrder;
 use petgraph::Direction;
+use petgraph::dot::{Dot, Config};
 use smt2parser::concrete::Symbol;
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet};
 use structopt::StructOpt;
@@ -341,8 +342,18 @@ impl Model {
         // triggered U
         let mut graph = Graph::<QiKey, ()>::new();
         let mut node_map = HashMap::new();
-        for (qi_key, _) in quantifier_inst_matches.clone() {
+        for (qi_key, quant_inst) in quantifier_inst_matches.clone() {
             let index = graph.add_node(*qi_key);
+            let quant_id = quant_inst.frame.quantifier();
+            let quant_term = self
+                .term(&quant_id)
+                .expect(format!("failed to find {:?} in the profiler's model", quant_id).as_str());
+            let quant_name = match quant_term {
+                Term::Quant { name, .. } => name,
+                _ => panic!("Term for quantifier isn't a Quant"),
+            };
+
+            println!("Added key {:?} with index {:?} for name {}", qi_key, index, quant_name);
             node_map.insert(qi_key, index);
         }
         for (qi_key, quant_inst) in quantifier_inst_matches.clone() {
@@ -373,6 +384,9 @@ impl Model {
                 }
             }
         }
+        println!("Graph is: {:?}", graph);
+
+        println!("\n\n{:?}\n\n", Dot::with_config(&graph, &[Config::NodeIndexLabel]));
 
         // Compute the in-degree of each QuantifierInstance
         let mut in_degree: HashMap<QiKey, u64> = HashMap::new();
@@ -403,6 +417,7 @@ impl Model {
         let mut qi_cost: HashMap<QiKey, u64> = HashMap::new();
         let mut dfs = DfsPostOrder::new(&graph, *some_index);
         for qi_root in graph.externals(Direction::Incoming) {
+            println!("Starting at root {:?}", qi_root);
             dfs.move_to(qi_root); // Keep visit map from the previous DFS traversal
             while let Some(index) = dfs.next(&graph) {
                 let qi_key = &graph[index];
