@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use once_cell::sync::Lazy;
+use petgraph::algo::is_cyclic_directed;
 use petgraph::graph::Graph;
 use petgraph::visit::DfsPostOrder;
 use petgraph::Direction;
@@ -416,18 +417,35 @@ impl Model {
             }
         }
 
+        // Z3 sometimes produces a trace with a bogus cycle of quantifier instantiations
+        // Check to see if that happened here
+        let cyclic = is_cyclic_directed(&graph);
+        let mut warned = false;
+
         // Finally, compute the cost of each quantifier
         //   = sum_{i \in instances} cost(i)
         let mut quant_cost: HashMap<String, QuantCost> = HashMap::new();
         for (qi_key, quant_inst) in quantifier_inst_matches.clone() {
             let quant_id = quant_inst.frame.quantifier();
-            let qi_cost = qi_cost.get(qi_key).expect(
-                format!(
-                    "failed to find qi_key {:?} for quant_id {:?} in qi_cost",
-                    qi_key, quant_id
-                )
-                .as_str(),
-            );
+            let qi_cost_opt = qi_cost.get(qi_key);
+            if qi_cost_opt.is_none() {
+                if cyclic {
+                    // When the graph is cyclic, some nodes may not make it into qi_cost
+                    // This is a known issue, so warn (once) but don't panic
+                    if !warned {
+                        println!("WARNING: Z3 produced a malformed proof trace, so quantifier costs may be undercounted");
+                        warned = true;
+                    }
+                    continue;
+                } else {
+                    // This is some other unexpected internal errror
+                    panic!(
+                        "failed to find qi_key {:?} for quant_id {:?} in qi_cost",
+                        qi_key, quant_id
+                    );
+                }
+            }
+            let qi_cost = qi_cost_opt.unwrap();
             let quant_term = self
                 .term(&quant_id)
                 .expect(format!("failed to find {:?} in the profiler's model", quant_id).as_str());
