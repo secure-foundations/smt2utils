@@ -433,7 +433,7 @@ impl Model {
                     // When the graph is cyclic, some nodes may not make it into qi_cost
                     // This is a known issue, so warn (once) but don't panic
                     if !warned {
-                        println!("WARNING: Z3 produced a malformed proof trace, so quantifier costs may be undercounted");
+                        eprintln!("WARNING: Z3 produced a malformed proof trace, so quantifier costs may be undercounted");
                         warned = true;
                     }
                     continue;
