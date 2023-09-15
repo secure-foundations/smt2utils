@@ -410,8 +410,9 @@ impl Model {
                 let mut sum = 0;
                 for neighbor in graph.neighbors_directed(index, Direction::Outgoing) {
                     let neighbor_key = &graph[neighbor];
-                    sum +=
-                        qi_cost.get(neighbor_key).unwrap() / in_degree.get(neighbor_key).unwrap();
+                    if let Some(neighbor_cost) = qi_cost.get(neighbor_key) {
+                        sum += neighbor_cost / in_degree.get(neighbor_key).unwrap();
+                    }
                 }
                 qi_cost.insert(*qi_key, 1 + sum);
             }
