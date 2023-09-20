@@ -452,7 +452,11 @@ impl Model {
                 .expect(format!("failed to find {:?} in the profiler's model", quant_id).as_str());
             let quant_name = match quant_term {
                 Term::Quant { name, .. } => name,
-                _ => panic!("Term for quantifier isn't a Quant"),
+                Term::App { name, .. } => name,
+                _ => {
+                    dbg!(&quant_term);
+                    panic!("Term for quantifier isn't a Quant");
+                }
             };
             match quant_cost.get_mut(quant_name) {
                 None => {
