@@ -13,7 +13,7 @@ use crate::{
 // https://github.com/TeXitoi/structopt/issues/333
 #[cfg_attr(not(doc), allow(missing_docs))]
 #[cfg_attr(doc, doc = "Configuration for the parsing of Z3 traces.")]
-#[derive(Debug, Default, Clone, StructOpt)]
+#[derive(Debug, Clone, StructOpt)]
 pub struct ParserConfig {
     /// Whether to ignore lines which don't start with '['.
     #[structopt(long)]
@@ -21,6 +21,19 @@ pub struct ParserConfig {
     /// Whether to skip the check for unsupported Z3 version.
     #[structopt(long)]
     pub skip_z3_version_check: bool,
+    /// Whether to show the parser progress bar.
+    #[structopt(long)]
+    pub show_progress_bar: bool,
+}
+
+impl Default for ParserConfig {
+    fn default() -> Self {
+        Self {
+            ignore_invalid_lines: Default::default(),
+            skip_z3_version_check: Default::default(),
+            show_progress_bar: true,
+        }
+    }
 }
 
 /// Parser for Z3 traces.
@@ -90,23 +103,30 @@ where
 {
     /// Parse the input.
     pub fn parse(&mut self) -> Result<()> {
-        let num_lines = self.lexer.line_count() as u64;
-        let granularity = 1000;
-        let bar = ProgressBar::new(num_lines / granularity);
-        bar.set_style(
-            ProgressStyle::default_bar()
-                .template("[{elapsed_precise}] {bar:80.green/black} {pos}/{len}K lines"),
-        );
+        let bar_granularity = self.config.show_progress_bar.then(|| {
+            let num_lines = self.lexer.line_count() as u64;
+            let granularity = 1000;
+            let bar = ProgressBar::new(num_lines / granularity);
+            bar.set_style(
+                ProgressStyle::default_bar()
+                    .template("[{elapsed_precise}] {bar:80.green/black} {pos}/{len}K lines"),
+            );
+            (bar, granularity)
+        });
         //        let increment = (0.01 * num_lines as f64) as u64;
         let mut line_count = 0;
         while self.parse_line().map_err(|e| self.lexer.make_error(e))? {
-            line_count += 1;
-            if line_count % granularity == 0 {
-                bar.inc(1);
-                //println!("\t{}% complete", (line_count * 100) / num_lines);
+            if let Some((bar, granularity)) = &bar_granularity {
+                line_count += 1;
+                if line_count % granularity == 0 {
+                    bar.inc(1);
+                    //println!("\t{}% complete", (line_count * 100) / num_lines);
+                }
             }
         }
-        bar.finish();
+        if let Some((bar, _)) = &bar_granularity {
+            bar.finish();
+        }
         Ok(())
     }
 

@@ -327,6 +327,10 @@ impl Model {
                     QiFrame::NewMatch { .. } => true,
                 });
 
+        if quantifier_inst_matches.clone().next().is_none() {
+            return Vec::new();
+        }
+
         // Track which instantiations caused which enodes to appear
         let mut term_blame = HashMap::new();
         for (qi_key, quant_inst) in quantifier_inst_matches.clone() {
@@ -913,10 +917,10 @@ impl Model {
         let c1 = self.term_equality_class(id1);
         let c2 = self.term_equality_class(id2);
         if c1 != c2 {
-            println!(
-                "{}: @{} {:?} -> {:?} =/= {:?} <- {:?}",
-                self.processed_logs, self.current_scope.level, id1, c1, c2, id2
-            );
+            // println!(
+            //     "{}: @{} {:?} -> {:?} =/= {:?} <- {:?}",
+            //     self.processed_logs, self.current_scope.level, id1, c1, c2, id2
+            // );
             return None;
         }
         let index = std::cmp::max(
